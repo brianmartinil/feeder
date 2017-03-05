@@ -6,14 +6,18 @@ from datetime import datetime
 import pytz
 import smtplib
 import sys
+import yaml
 
-me = 'your_email_address_here'
-pw = 'your_email_password_here'
-gmail = 'smtp.gmail.com:587'
-subject = 'Your RSS feed update'
-homeTZ = pytz.timezone('US/Central')
+# Load config from yaml file
+configfile = sys.argv[1]
+config = yaml.load(open(configfile))
+
+me = config['email']['address']
+pw = config['email']['password']
+smtp = config['email']['smtp']
+subject = config['email']['subject']
+homeTZ = pytz.timezone(config['timezone'])
 utc = pytz.utc
-subfile = sys.argv[1]
 
 # Convert post date and time from UTC to home time zone.
 def convertTZ(struct):
@@ -50,52 +54,54 @@ nonewitems = '''\
 <p>No new items at this time.</p>
 '''
 
-subdict = {}
 output = ''
 errors = ''
 newitems = 0
 
-with open(subfile) as subs:
-	for sub in subs:
-		feed, lastlink = sub.split()
-		subdict[feed] = lastlink
+for sub in config['feeds']:
+	feed = sub['url']
 
-		try:
-			f = feedparser.parse(feed)
+	if 'newest' not in sub:
+		sub['newest'] = 'none'
 
-			if 'version' not in f:
-				errors += errorfmt.format(feed, "Error loading feed.")
+	lastlink = sub['newest']
 
-			if len(f.entries) == 0:
-				subdict[feed] = 'none'
-				continue;
+	try:
+		f = feedparser.parse(feed)
 
-			feedname = f.feed.get('title', 'Untitled Feed').encode('utf8')
-			items = ''
+		if 'version' not in f:
+			errors += errorfmt.format(feed, "Error loading feed.")
 
-			subdict[feed] = f.entries[0].link
+		if len(f.entries) == 0:
+			sub['newest'] = 'none'
+			continue;
 
-			for entry in f.entries:
-				link = entry.link
+		feedname = f.feed.get('title', 'Untitled Feed').encode('utf8')
+		items = ''
 
-				if link == lastlink:
-					break
-				else:
-					title = entry.get('title', 'No Title').encode('utf8')
-					author = entry.get('author', 'No Author').encode('utf8')
-					date = entry.get('updated_parsed', gmtime())
-					date = convertTZ(date).strftime('%B %d at %I:%M %p').encode('utf8')
-					items += itemfmt.format(title, author, link, date)
-					newitems += 1
+		sub['newest'] = f.entries[0].link.encode('utf8')
 
-			if items != '':
-				# Take the collected items and add them to the output
-				output += feedfmt.format(feedname, items)
-		except:
-			# rewind the feed to the original lastlink
-			subdict[feed] = lastlink
-			# put something in the email so maybe we can debug?
-			errors += errorfmt.format(feed, sys.exc_info()[0])
+		for entry in f.entries:
+			link = entry.link
+
+			if link == lastlink:
+				break
+			else:
+				title = entry.get('title', 'No Title').encode('utf8')
+				author = entry.get('author', 'No Author').encode('utf8')
+				date = entry.get('updated_parsed', gmtime())
+				date = convertTZ(date).strftime('%B %d at %I:%M %p').encode('utf8')
+				items += itemfmt.format(title, author, link, date)
+				newitems += 1
+
+		if items != '':
+			# Take the collected items and add them to the output
+			output += feedfmt.format(feedname, items)
+	except:
+		# rewind the feed to the original lastlink
+		sub['newest'] = lastlink.encode('utf8')
+		# put something in the email so maybe we can debug?
+		errors += errorfmt.format(feed, sys.exc_info()[0])
 
 
 if newitems == 0:
@@ -105,7 +111,7 @@ output += errors
 
 try:
 	# send
-	server = smtplib.SMTP(gmail)
+	server = smtplib.SMTP(smtp)
 	server.starttls()
 	server.login(me, pw)
 
@@ -117,6 +123,5 @@ except:
 	# If sending the email fails, quit before updating the read feeds
 	sys.exit(1)
 
-with open(subfile, 'w') as subs:
-	for k, v in subdict.iteritems():
-		subs.write('%s %s\n' % (k,v) )
+with open(configfile, 'w') as subs:
+	subs.write(yaml.dump(config, default_flow_style=False))

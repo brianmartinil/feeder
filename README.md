@@ -5,14 +5,12 @@ This is a modified version of [Dr. Drang's RSS aggregator](http://leancrew.com/a
 
 ## Installation
 
-`pip install feedparser pytz`
+`pip install feedparser pytz pyyaml`
 
-Edit feeder.py to include your email address, mail server password, mail server, timezone, etc.
-
-Create a text file of feeds.  The format is one feed per line, the feed URL followed by a space followed by the URL of the most recent entry.  Use "none" for the most recent entry of a newly added feed.  See the example feeds.txt in this repo.
+Edit config.yml to have the values match your email account and feeds.
 
 ## Usage
-`python feeder.py feeds.txt`
+`python feeder.py config.yml`
 
 ## TODO
-Nothing, it works fine for me.  Other users might appreciate having the configuration moved out of the source code, and maybe making the email template easier to edit.
+Nothing, it works fine for me.  Maybe use a real template language for the email template?

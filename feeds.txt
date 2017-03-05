@@ -1,2 +1,0 @@
-http://leancrew.com/all-this/feed/ none
-http://xkcd.com/atom.xml none

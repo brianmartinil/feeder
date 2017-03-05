@@ -1,0 +1,11 @@
+email:
+  address: your_email@test.com
+  password: your_email_password
+  smtp: smtp.gmail.com:587
+  subject: Your updated RSS feeds
+timezone: US/Central
+feeds:
+- newest: none
+  url: http://xkcd.com/atom.xml
+- newest: none
+  url: http://leancrew.com/all-this/feed/
