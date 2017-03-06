@@ -1,11 +1,15 @@
 #!/usr/bin/python
 
-import feedparser
-from time import mktime, gmtime
 from datetime import datetime
+from email.header import Header
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import feedparser
+import pystache
 import pytz
 import smtplib
 import sys
+from time import mktime, gmtime
 import yaml
 
 # Load config from yaml file
@@ -24,39 +28,29 @@ def convertTZ(struct):
 	dt = datetime.fromtimestamp(mktime(struct))
 	return utc.localize(dt).astimezone(homeTZ)
 
-mailfmt = '''\
-From: {0}
-To: {1}
-Subject: {2}
-Content-Type: text/html
+template = '''\
+{{#feeds}}
+	<h1>{{feed}}</h1>
+	{{#article}}
+		<p>
+			<a href="{{link}}">{{title}}</a><br />
+			by {{author}} on {{date}}
+		</p>
+	{{/article}}
+{{/feeds}}
 
-{3}'''
+{{^feeds}}
+	<p>No new items at this time.</p>
+{{/feeds}}
 
-feedfmt = '''\
-<h1>{0}</h1>
-{1}
+{{#errors}}
+	<p>
+		<b>Error for {{feed}}: </b><pre>{{error}}</pre>
+	</p>
+{{/errors}}
 '''
 
-itemfmt = '''\
-<p>
-	<a href={2}>{0}</a><br />
-	by {1} on {3}
-</p>
-'''
-
-errorfmt = '''
-<p>
-	<b>Error for {0}: </b><pre>{1}</pre>
-</p>
-'''
-
-nonewitems = '''\
-<p>No new items at this time.</p>
-'''
-
-output = ''
-errors = ''
-newitems = 0
+data = {'errors': [], 'feeds': []}
 
 for sub in config['feeds']:
 	feed = sub['url']
@@ -70,14 +64,14 @@ for sub in config['feeds']:
 		f = feedparser.parse(feed)
 
 		if 'version' not in f:
-			errors += errorfmt.format(feed, "Error loading feed.")
+			data['errors'].append({'feed': feed, 'error': "Error loading feed."})
 
-		if len(f.entries) == 0:
+		if not f.entries:
 			sub['newest'] = 'none'
 			continue;
 
 		feedname = f.feed.get('title', 'Untitled Feed').encode('utf8')
-		items = ''
+		items = []
 
 		sub['newest'] = f.entries[0].link.encode('utf8')
 
@@ -91,23 +85,16 @@ for sub in config['feeds']:
 				author = entry.get('author', 'No Author').encode('utf8')
 				date = entry.get('updated_parsed', gmtime())
 				date = convertTZ(date).strftime('%B %d at %I:%M %p').encode('utf8')
-				items += itemfmt.format(title, author, link, date)
-				newitems += 1
+				items.append({'link': link, 'title': title, 'author': author , 'date': date})
 
-		if items != '':
+		if items:
 			# Take the collected items and add them to the output
-			output += feedfmt.format(feedname, items)
-	except:
+			data['feeds'].append({'feed': feedname, 'article': items})
+	except exc:
 		# rewind the feed to the original lastlink
 		sub['newest'] = lastlink.encode('utf8')
 		# put something in the email so maybe we can debug?
-		errors += errorfmt.format(feed, sys.exc_info()[0])
-
-
-if newitems == 0:
-	output += nonewitems
-
-output += errors
+		data['errors'].append({'feed': feed, 'error': exc})
 
 try:
 	# send
@@ -115,9 +102,19 @@ try:
 	server.starttls()
 	server.login(me, pw)
 
-	mail = mailfmt.format(me, me, subject, output)
+	# Jump through the MIME hoops to make Unicode work right
+	mail = MIMEMultipart('alternative')
+	mail['Subject'] = Header(subject, 'utf-8')
+	mail['From'] = Header(me, 'utf-8')
+	mail['To'] = Header(me, 'utf-8')
 
-	server.sendmail(me, [me], mail)
+	renderer = pystache.Renderer(string_encoding='utf8')
+	body = renderer.render(template, data)
+	html_text = MIMEText(body, 'html', 'utf-8')
+
+	mail.attach(html_text)
+
+	server.sendmail(me, [me], mail.as_string())
 	server.quit()
 except:
 	# If sending the email fails, quit before updating the read feeds
