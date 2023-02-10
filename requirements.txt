@@ -1,0 +1,5 @@
+docopt
+feedparser
+pytz
+pyyaml
+pystache
