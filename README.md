@@ -6,7 +6,9 @@ a failure for him, but the rough idea worked for me.  To fit my reading style, I
 
 ## Installation
 
-`pip3 install -r requirements.txt`
+```Shell
+pip3 install -r requirements.txt
+```
 
 Edit config.yml to have the values match your email account and feeds.  You can also
 edit the inlined Mustache template to change the format of the email.
@@ -14,15 +16,31 @@ edit the inlined Mustache template to change the format of the email.
 This script only sends HTML email.  Sorry, elm users.
 
 ## Usage
-`python feeder.py config.yml`
+```Shell
+python feeder.py config.yml
+```
 
 ## Docker container
 
 I have also included semi-experimental support for building and running the script from Docker.  To build
-the image, either run `docker build --tag feeder .` locally, or run `docker build --tag feeder github.com/brianmartinil/feeder`.
+the image, either clone the repo locally and run:
 
-The fetch the feeds and send an email, create a config `yml` file and put it somewhere that Docker will have
-write access to it.  The run the container: `docker run --rm -v <path-to-your-yml-file>:/config/feeds.yml feeder:latest`
+```Shell
+docker build --tag feeder .
+``` 
+
+Or build from the version in this repo's master branch:
+
+```Shell
+docker build --tag feeder github.com/brianmartinil/feeder
+```
+
+To run feeder from the image, create a `config.yml` file and put it somewhere that Docker will have
+write access to it.  Then run the container: 
+
+```Shell
+docker run --rm -v <path-to-your-yml-file>:/config/feeds.yml feeder:latest
+```
 
 ## TODO
 Nothing, it works fine for me.
