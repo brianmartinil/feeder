@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 from datetime import datetime
 from email.header import Header
@@ -14,7 +14,7 @@ import yaml
 
 # Load config from yaml file
 configfile = sys.argv[1]
-config = yaml.load(open(configfile))
+config = yaml.safe_load(open(configfile))
 
 me = config['email']['address']
 pw = config['email']['password']
@@ -70,10 +70,10 @@ for sub in config['feeds']:
 			sub['newest'] = 'none'
 			continue;
 
-		feedname = f.feed.get('title', 'Untitled Feed').encode('utf8')
+		feedname = f.feed.get('title', 'Untitled Feed')
 		items = []
 
-		sub['newest'] = f.entries[0].link.encode('utf8')
+		sub['newest'] = f.entries[0].link
 
 		for entry in f.entries:
 			link = entry.link
@@ -81,10 +81,10 @@ for sub in config['feeds']:
 			if link == lastlink:
 				break
 			else:
-				title = entry.get('title', 'No Title').encode('utf8')
-				author = entry.get('author', 'No Author').encode('utf8')
+				title = entry.get('title', 'No Title')
+				author = entry.get('author', 'No Author')
 				date = entry.get('updated_parsed', gmtime())
-				date = convertTZ(date).strftime('%B %d at %I:%M %p').encode('utf8')
+				date = convertTZ(date).strftime('%B %d at %I:%M %p')
 				items.append({'link': link, 'title': title, 'author': author , 'date': date})
 
 		if items:
@@ -92,7 +92,7 @@ for sub in config['feeds']:
 			data['feeds'].append({'feed': feedname, 'article': items})
 	except exc:
 		# rewind the feed to the original lastlink
-		sub['newest'] = lastlink.encode('utf8')
+		sub['newest'] = lastlink
 		# put something in the email so maybe we can debug?
 		data['errors'].append({'feed': feed, 'error': exc})
 
